@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>jami's website'</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&family=Space+Mono&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      cursor: none;
+      background: #0B6E76;
+    }
+
+    canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    #ui {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      padding-bottom: 8vh;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    #title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700;
+      font-size: clamp(2.5rem, 7vw, 6rem);
+      color: #F0EBE0;
+      letter-spacing: -0.03em;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 1.6s ease, transform 1.6s ease;
+      mix-blend-mode: normal;
+      pointer-events: auto;
+      cursor: default;
+      user-select: none;
+    }
+
+    #title.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    #nav {
+      margin-top: 1.4rem;
+      display: flex;
+      gap: 2.5rem;
+      opacity: 0;
+      transition: opacity 1.2s ease;
+    }
+
+    #nav.visible {
+      opacity: 1;
+    }
+
+    #nav a {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.72rem;
+      color: #F0EBE0;
+      text-decoration: none;
+      letter-spacing: 0.14em;
+      pointer-events: auto;
+      cursor: none;
+      padding-bottom: 2px;
+      border-bottom: 1.5px solid transparent;
+      transition: border-color 0.2s;
+    }
+
+    #nav a:hover {
+      border-bottom-color: #F0EBE0;
+    }
+
+    #cursor {
+      position: fixed;
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 100;
+      transform: translate(-50%, -50%);
+      mix-blend-mode: screen;
+      transition: background 0.12s;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+
+  <div id="ui">
+    <div id="title">jami wardlow</div>
+    <!--
+    <nav id="nav">
+      <a href="/games">games</a>
+      <a href="/art">art</a>
+      <a href="/motion">motion</a>
+    </nav>
+    -->
+  </div>
+
+  <div id="cursor"></div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const titleEl = document.getElementById('title');
+    const navEl = document.getElementById('nav');
+    const cursorEl = document.getElementById('cursor');
+
+    // Palette pulled directly from room photos
+    const PALETTE = [
+      '#DFC24E', // golden yellow shelf
+      '#E83870', // hot pink accents
+      '#7ECFC4', // mint cabinet
+      '#C95830', // orange chair
+      '#7B3F8E', // purple desk drawers
+      '#4DB6CC', // cyan picture frames
+      '#000', // black
+    ];
+
+    let W = canvas.width = window.innerWidth;
+    let H = canvas.height = window.innerHeight;
+
+    window.addEventListener('resize', () => {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    });
+
+    function rand(a, b) { return a + Math.random() * (b - a); }
+    function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+    // ---- Shapes (Kandinsky-style geometric forms) ----
+
+    const TYPES = ['circle', 'triangle', 'rect', 'line', 'semicircle'];
+
+    class Shape {
+      constructor({ x, y, fromClick } = {}) {
+        this.fromClick = !!fromClick;
+        this.x = x ?? rand(W * 0.05, W * 0.95);
+        this.y = y ?? rand(H * 0.05, H * 0.95);
+        this.type = pick(TYPES);
+        this.color = pick(PALETTE);
+        this.filled = Math.random() > 0.42;
+        this.size = this.fromClick ? rand(10, 55) : rand(22, 115);
+        this.aspect = rand(0.45, 1.9);
+        this.strokeW = rand(1.5, 4);
+        this.lineW = rand(2, 6);
+        this.alpha = 0;
+        this.targetAlpha = this.fromClick ? rand(0.55, 0.88) : rand(0.14, 0.48);
+        this.rotation = rand(0, Math.PI * 2);
+        this.rotSpeed = rand(-0.005, 0.005);
+        this.vx = this.fromClick ? rand(-4.5, 4.5) : rand(-0.22, 0.22);
+        this.vy = this.fromClick ? rand(-4.5, 4.5) : rand(-0.22, 0.22);
+        this.age = 0;
+        this.life = this.fromClick ? rand(90, 150) : Infinity;
+      }
+
+      get dead() {
+        return this.life !== Infinity && this.age >= this.life;
+      }
+
+      update() {
+        if (this.alpha < this.targetAlpha) {
+          this.alpha = Math.min(this.targetAlpha, this.alpha + 0.007);
+        }
+
+        this.x += this.vx;
+        this.y += this.vy;
+        this.rotation += this.rotSpeed;
+        this.age++;
+
+        if (this.fromClick) {
+          this.vx *= 0.955;
+          this.vy *= 0.955;
+          const remaining = this.life - this.age;
+          if (remaining < 45) {
+            this.alpha = this.targetAlpha * (remaining / 45);
+          }
+        } else {
+          const pad = this.size;
+          if (this.x < -pad) this.x = W + pad;
+          if (this.x > W + pad) this.x = -pad;
+          if (this.y < -pad) this.y = H + pad;
+          if (this.y > H + pad) this.y = -pad;
+        }
+      }
+
+      draw() {
+        if (this.alpha < 0.005) return;
+        ctx.save();
+        ctx.globalAlpha = this.alpha;
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.rotation);
+        ctx.strokeStyle = this.color;
+        ctx.fillStyle = this.color;
+        ctx.lineWidth = this.strokeW;
+        ctx.lineCap = 'round';
+
+        const s = this.size;
+
+        switch (this.type) {
+          case 'circle':
+            ctx.beginPath();
+            ctx.arc(0, 0, s / 2, 0, Math.PI * 2);
+            this.filled ? ctx.fill() : ctx.stroke();
+            break;
+
+          case 'triangle':
+            ctx.beginPath();
+            ctx.moveTo(0, -s / 2);
+            ctx.lineTo(s / 2, s / 2);
+            ctx.lineTo(-s / 2, s / 2);
+            ctx.closePath();
+            this.filled ? ctx.fill() : ctx.stroke();
+            break;
+
+          case 'rect': {
+            const rw = s, rh = s * this.aspect;
+            ctx.beginPath();
+            ctx.rect(-rw / 2, -rh / 2, rw, rh);
+            this.filled ? ctx.fill() : ctx.stroke();
+            break;
+          }
+
+          case 'line':
+            ctx.beginPath();
+            ctx.moveTo(-s / 2, 0);
+            ctx.lineTo(s / 2, 0);
+            ctx.lineWidth = this.lineW;
+            ctx.stroke();
+            break;
+
+          case 'semicircle':
+            ctx.beginPath();
+            ctx.arc(0, 0, s / 2, 0, Math.PI);
+            this.filled ? ctx.fill() : ctx.stroke();
+            break;
+        }
+
+        ctx.restore();
+      }
+    }
+
+    let shapes = [];
+    for (let i = 0; i < 22; i++) shapes.push(new Shape());
+
+    setInterval(() => {
+      if (shapes.filter(s => !s.fromClick).length < 26) {
+        shapes.push(new Shape());
+      }
+    }, 2800);
+
+    // ---- Cursor trail ----
+    const trail = [];
+    let colorIdx = 0;
+
+    document.addEventListener('mousemove', e => {
+      const mx = e.clientX, my = e.clientY;
+      cursorEl.style.left = mx + 'px';
+      cursorEl.style.top = my + 'px';
+      colorIdx = (colorIdx + 1) % PALETTE.length;
+      cursorEl.style.background = PALETTE[colorIdx];
+
+      trail.push({
+        x: mx,
+        y: my,
+        r: rand(3, 7),
+        color: pick(PALETTE),
+        alpha: 0.65,
+      });
+    });
+
+    document.addEventListener('click', e => {
+      const count = 9 + Math.floor(Math.random() * 6);
+      for (let i = 0; i < count; i++) {
+        shapes.push(new Shape({ x: e.clientX, y: e.clientY, fromClick: true }));
+      }
+    });
+
+    // ---- Reveal ----
+    setTimeout(() => titleEl.classList.add('visible'), 2800);
+    setTimeout(() => navEl.classList.add('visible'), 4300);
+
+    // ---- Loop ----
+    function frame() {
+      // Soft clear creates persistence / after-image effect
+      ctx.fillStyle = 'rgba(11, 110, 118, 0.17)';
+      ctx.fillRect(0, 0, W, H);
+
+      // Trail
+      for (let i = trail.length - 1; i >= 0; i--) {
+        const t = trail[i];
+        t.alpha -= 0.011;
+        if (t.alpha <= 0) { trail.splice(i, 1); continue; }
+        ctx.save();
+        ctx.globalAlpha = t.alpha;
+        ctx.fillStyle = t.color;
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, t.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // Shapes
+      shapes = shapes.filter(s => !s.dead);
+      for (const s of shapes) {
+        s.update();
+        s.draw();
+      }
+
+      requestAnimationFrame(frame);
+    }
+
+    frame();
+  </script>
+</body>
+</html>

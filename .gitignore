@@ -1,0 +1,16 @@
+# macOS
+.DS_Store
+.DS_Store?
+._*
+
+# Firebase
+.firebase/
+firebase-debug.log
+
+# Reference photos (not part of the site)
+*.jpeg
+*.jpg
+*.png
+
+# Node (if ever needed)
+node_modules/
