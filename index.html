@@ -342,12 +342,12 @@
     });
 
     document.addEventListener('click', e => {
-      if (pieceResolved) return;
-      pieceResolved = true;
       const count = 9 + Math.floor(Math.random() * 6);
       for (let i = 0; i < count; i++) {
         shapes.push(new Shape({ x: e.clientX, y: e.clientY, fromClick: true }));
       }
+      if (pieceResolved) return;
+      pieceResolved = true;
       const color = pick(CARD_PALETTE);
       // Let the burst play out before the card floats in
       setTimeout(() => addGithubLink(e.clientX, e.clientY, color), 2000);
