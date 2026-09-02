@@ -302,7 +302,7 @@
       a.innerHTML = `
         <svg viewBox="0 0 ${w + pad * 2} ${h + pad * 2}" width="${w + pad * 2}" height="${h + pad * 2}">
           <g transform="translate(${pad},${pad})">
-            <path d="${scallopPath(w, h, 16)}" fill="${color}" stroke="${textColor}" stroke-width="2" stroke-opacity="0.5"/>
+            <path d="${scallopPath(w, h, 16)}" fill="${color}"/>
             ${accents}
             <svg x="22" y="${h / 2 - 12}" width="24" height="24" viewBox="0 0 24 24" fill="${textColor}">${GITHUB_ICON_PATH}</svg>
             <text x="54" y="${h / 2}" dominant-baseline="middle" fill="${textColor}" font-family="'Righteous', system-ui, sans-serif" font-size="22">@jamiwardlow</text>
