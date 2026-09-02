@@ -4,9 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>jami's website</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&family=Space+Mono&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Righteous&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after {
       margin: 0;
@@ -19,7 +20,6 @@
       height: 100%;
       overflow: hidden;
       cursor: none;
-      background: #0B6E76;
     }
 
     canvas {
@@ -29,65 +29,24 @@
       height: 100%;
     }
 
-    #ui {
+    .piece-link {
       position: fixed;
-      inset: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-end;
-      padding-bottom: 8vh;
-      pointer-events: none;
       z-index: 10;
-    }
-
-    #title {
-      font-family: 'Space Grotesk', sans-serif;
-      font-weight: 700;
-      font-size: clamp(2.5rem, 7vw, 6rem);
-      color: #F0EBE0;
-      letter-spacing: -0.03em;
-      opacity: 0;
-      transform: translateY(10px);
-      transition: opacity 1.6s ease, transform 1.6s ease;
-      mix-blend-mode: normal;
-      pointer-events: auto;
-      cursor: default;
-      user-select: none;
-    }
-
-    #title.visible {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    #nav {
-      margin-top: 1.4rem;
-      display: flex;
-      gap: 2.5rem;
-      opacity: 0;
-      transition: opacity 1.2s ease;
-    }
-
-    #nav.visible {
-      opacity: 1;
-    }
-
-    #nav a {
-      font-family: 'Space Mono', monospace;
-      font-size: 0.72rem;
-      color: #F0EBE0;
+      line-height: 0;
       text-decoration: none;
-      letter-spacing: 0.14em;
-      pointer-events: auto;
-      cursor: none;
-      padding-bottom: 2px;
-      border-bottom: 1.5px solid transparent;
-      transition: border-color 0.2s;
+      opacity: 0;
+      transition: opacity 0.6s;
+      transform: translate(-50%, -50%);
     }
 
-    #nav a:hover {
-      border-bottom-color: #F0EBE0;
+    .piece-link.visible {
+      opacity: 1;
+      animation: piece-float 4s ease-in-out infinite;
+    }
+
+    @keyframes piece-float {
+      0%, 100% { transform: translate(-50%, -50%) translateY(0); }
+      50% { transform: translate(-50%, -50%) translateY(-8px); }
     }
 
     #cursor {
@@ -104,38 +63,29 @@
   </style>
 </head>
 <body>
-  <canvas id="canvas"></canvas>
-
-  <div id="ui">
-    <div id="title">jami wardlow</div>
-    <!--
-    <nav id="nav">
-      <a href="/games">games</a>
-      <a href="/art">art</a>
-      <a href="/motion">motion</a>
-    </nav>
-    -->
-  </div>
+  <canvas id="canvas" role="img" aria-label="Generative animated field of Kandinsky-style geometric shapes"></canvas>
 
   <div id="cursor"></div>
 
   <script>
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
-    const titleEl = document.getElementById('title');
-    const navEl = document.getElementById('nav');
     const cursorEl = document.getElementById('cursor');
+
+    const GITHUB_URL = 'https://github.com/jamiwardlow';
 
     // Palette pulled directly from room photos
     const PALETTE = [
       '#DFC24E', // golden yellow shelf
       '#E83870', // hot pink accents
-      '#7ECFC4', // mint cabinet
+      '#907dba', // pastel purple
       '#C95830', // orange chair
       '#7B3F8E', // purple desk drawers
-      '#4DB6CC', // cyan picture frames
+      '#a1dc64', // neon green
       '#000', // black
     ];
+
+    const CARD_PALETTE = PALETTE.filter(c => c !== '#000');
 
     let W = canvas.width = window.innerWidth;
     let H = canvas.height = window.innerHeight;
@@ -148,12 +98,21 @@
     function rand(a, b) { return a + Math.random() * (b - a); }
     function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
+    // Background rotates through these on each page load
+    const BG_COLORS = ['11, 110, 118', '139, 47, 74', '35, 61, 122', '92, 46, 122', '30, 90, 60'];
+    let bgIdx = Number(localStorage.getItem('bgIdx')) || 0;
+    bgIdx = (bgIdx + 1) % BG_COLORS.length;
+    localStorage.setItem('bgIdx', bgIdx);
+    const BG_RGB = BG_COLORS[bgIdx];
+    document.body.style.background = `rgb(${BG_RGB})`;
+
     // ---- Shapes (Kandinsky-style geometric forms) ----
 
     const TYPES = ['circle', 'triangle', 'rect', 'line', 'semicircle'];
 
     class Shape {
-      constructor({ x, y, fromClick } = {}) {
+      constructor(opts = {}) {
+        const { x, y, fromClick } = opts;
         this.fromClick = !!fromClick;
         this.x = x ?? rand(W * 0.05, W * 0.95);
         this.y = y ?? rand(H * 0.05, H * 0.95);
@@ -263,6 +222,99 @@
     let shapes = [];
     for (let i = 0; i < 22; i++) shapes.push(new Shape());
 
+    // ---- First click resolves into a floating GitHub link ----
+    const GITHUB_ICON_PATH = '<path d="M12 .5C5.73.5.5 5.73.5 12c0 5.08 3.29 9.38 7.86 10.9.57.1.78-.25.78-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.53-1.33-1.28-1.68-1.28-1.68-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.76 2.7 1.25 3.36.96.1-.74.4-1.25.72-1.54-2.56-.29-5.25-1.28-5.25-5.7 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.64 1.59.24 2.76.12 3.05.74.81 1.19 1.84 1.19 3.1 0 4.43-2.7 5.4-5.27 5.69.42.36.78 1.07.78 2.16 0 1.56-.01 2.82-.02 3.2 0 .3.2.66.79.55A11.5 11.5 0 0 0 23.5 12C23.5 5.73 18.27.5 12 .5z"/>';
+
+    function hexToRgb(hex) {
+      const n = parseInt(hex.replace('#', ''), 16);
+      return hex.length > 4 ? [n >> 16 & 255, n >> 8 & 255, n & 255] : [n >> 8 & 15, n >> 4 & 15, n & 15].map(v => v * 17);
+    }
+
+    function isLight(hex) {
+      const [r, g, b] = hexToRgb(hex);
+      return (r * 299 + g * 587 + b * 114) / 1000 > 150;
+    }
+
+    // WCAG relative luminance / contrast ratio, used to pick a text color
+    // that's guaranteed readable against a random card background.
+    function luminance(hex) {
+      const [r, g, b] = hexToRgb(hex).map(v => {
+        v /= 255;
+        return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    }
+
+    function contrastRatio(hexA, hexB) {
+      const [l1, l2] = [luminance(hexA), luminance(hexB)];
+      const [light, dark] = l1 > l2 ? [l1, l2] : [l2, l1];
+      return (light + 0.05) / (dark + 0.05);
+    }
+
+    // Scalloped card outline: walk the rect clockwise, each edge divided into
+    // outward-bulging semicircle bumps sized to roughly `r`.
+    function scallopPath(w, h, r) {
+      const edge = (x1, y1, x2, y2) => {
+        const len = Math.hypot(x2 - x1, y2 - y1);
+        const n = Math.max(2, Math.ceil(len / (r * 2)));
+        const dx = (x2 - x1) / n, dy = (y2 - y1) / n;
+        const bumpR = Math.hypot(dx, dy) / 2;
+        return `a${bumpR},${bumpR} 0 0 1 ${dx},${dy} `.repeat(n);
+      };
+      return `M0,0 ${edge(0, 0, w, 0)}${edge(w, 0, w, h)}${edge(w, h, 0, h)}${edge(0, h, 0, 0)}Z`;
+    }
+
+    const ACCENT_TYPES = ['circle', 'triangle', 'rect'];
+
+    function accentShapeSVG(cx, cy, size, color) {
+      const filled = Math.random() > 0.3;
+      const fillAttr = filled ? `fill="${color}"` : `fill="none" stroke="${color}" stroke-width="2"`;
+      let shape;
+      switch (pick(ACCENT_TYPES)) {
+        case 'circle':
+          shape = `<circle r="${size / 2}" ${fillAttr}/>`;
+          break;
+        case 'triangle':
+          shape = `<polygon points="0,${-size / 2} ${size / 2},${size / 2} ${-size / 2},${size / 2}" ${fillAttr}/>`;
+          break;
+        case 'rect':
+          shape = `<rect x="${-size / 2}" y="${-size / 2}" width="${size}" height="${size * rand(0.6, 1.4)}" ${fillAttr}/>`;
+          break;
+      }
+      return `<g transform="translate(${cx},${cy}) rotate(${rand(0, 360)})" opacity="0.32">${shape}</g>`;
+    }
+
+    function addGithubLink(x, y, color) {
+      color = color || pick(CARD_PALETTE);
+      const w = 230, h = 110, pad = 24;
+      const contrasting = PALETTE.concat('#fff').filter(c => contrastRatio(c, color) >= 4.5);
+      const textColor = pick(contrasting) || (isLight(color) ? '#000' : '#fff');
+      const accents = Array.from({ length: 4 }, () =>
+        accentShapeSVG(rand(20, w - 20), rand(18, h - 18), rand(16, 32), pick(PALETTE))
+      ).join('');
+      const a = document.createElement('a');
+      a.className = 'piece-link';
+      a.href = GITHUB_URL;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.style.left = x + 'px';
+      a.style.top = y + 'px';
+      a.innerHTML = `
+        <svg viewBox="0 0 ${w + pad * 2} ${h + pad * 2}" width="${w + pad * 2}" height="${h + pad * 2}">
+          <g transform="translate(${pad},${pad})">
+            <path d="${scallopPath(w, h, 16)}" fill="${color}" stroke="${textColor}" stroke-width="2" stroke-opacity="0.5"/>
+            ${accents}
+            <svg x="22" y="${h / 2 - 12}" width="24" height="24" viewBox="0 0 24 24" fill="${textColor}">${GITHUB_ICON_PATH}</svg>
+            <text x="54" y="${h / 2}" dominant-baseline="middle" fill="${textColor}" font-family="'Righteous', system-ui, sans-serif" font-size="22">@jamiwardlow</text>
+          </g>
+        </svg>
+      `;
+      document.body.appendChild(a);
+      requestAnimationFrame(() => requestAnimationFrame(() => a.classList.add('visible')));
+    }
+
+    let pieceResolved = false;
+
     setInterval(() => {
       if (shapes.filter(s => !s.fromClick).length < 26) {
         shapes.push(new Shape());
@@ -290,20 +342,21 @@
     });
 
     document.addEventListener('click', e => {
+      if (pieceResolved) return;
+      pieceResolved = true;
       const count = 9 + Math.floor(Math.random() * 6);
       for (let i = 0; i < count; i++) {
         shapes.push(new Shape({ x: e.clientX, y: e.clientY, fromClick: true }));
       }
+      const color = pick(CARD_PALETTE);
+      // Let the burst play out before the card floats in
+      setTimeout(() => addGithubLink(e.clientX, e.clientY, color), 2000);
     });
-
-    // ---- Reveal ----
-    setTimeout(() => titleEl.classList.add('visible'), 2800);
-    setTimeout(() => navEl.classList.add('visible'), 4300);
 
     // ---- Loop ----
     function frame() {
       // Soft clear creates persistence / after-image effect
-      ctx.fillStyle = 'rgba(11, 110, 118, 0.17)';
+      ctx.fillStyle = `rgba(${BG_RGB}, 0.17)`;
       ctx.fillRect(0, 0, W, H);
 
       // Trail
